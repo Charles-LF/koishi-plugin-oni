@@ -1,4 +1,4 @@
-import { Context, Schema, h } from "koishi";
+import { Context, Schema, h, sleep } from "koishi";
 import puppeteer from "koishi-plugin-puppeteer";
 import { sendMarkdown } from "./messageSend";
 
@@ -12,6 +12,7 @@ export interface Config {
   buttonId: string;
   errorId: string;
   url: string;
+  waittime: number;
 }
 
 export const Config: Schema<Config> = Schema.object({
@@ -24,6 +25,7 @@ export const Config: Schema<Config> = Schema.object({
   buttonId: Schema.string(),
   errorId: Schema.string(),
   url: Schema.string().default("https://oni.klei.vip/zh/"),
+  waittime: Schema.number().default(5000),
 });
 
 export function apply(ctx: Context, config: Config) {
@@ -37,7 +39,7 @@ export function apply(ctx: Context, config: Config) {
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.67",
       };
       const qurry = {
-        ction: "opensearch",
+        action: "opensearch",
         namespace: "*",
         limit: 5,
         redirects: "return",
@@ -55,6 +57,7 @@ export function apply(ctx: Context, config: Config) {
           for (const j in resItemList) {
             itemList.push(resItemList[j].replace(".", "-*"));
           }
+          console.log(itemList);
           if (itemName === itemList[0]) {
             return printer(urlList[0]);
           } else {
@@ -88,7 +91,7 @@ export function apply(ctx: Context, config: Config) {
         .catch(async (err) => {
           console.log(err);
           await session.send("API查询失败，赋值截取中，请稍等。。。。");
-          await printer(config.url + itemName);
+          await printer(config.url + encodeURI(itemName));
         });
       // 获取截图
       async function printer(url: string) {
@@ -105,8 +108,8 @@ export function apply(ctx: Context, config: Config) {
             await page.addStyleTag({
               content: "#mw-content-text{padding: 40px}",
             });
+            sleep(config.waittime);
             const img = await taget.screenshot({ type: "jpeg", quality: 65 });
-            session.send("图片截取成功");
             await page.close();
             session.send(h.image(img, "image/jpeg"));
           } catch (e) {
@@ -115,7 +118,10 @@ export function apply(ctx: Context, config: Config) {
               config.appId,
               config.token,
               session.channelId,
-              config.errorId
+              config.errorId,
+              {
+                err: "鬼知道哪里出了问题（",
+              }
             );
           }
         }
