@@ -108,7 +108,7 @@ export function apply(ctx: Context, config: Config) {
             await page.addStyleTag({
               content: "#mw-content-text{padding: 40px}",
             });
-            sleep(config.waittime);
+            await sleep(config.waittime);
             const img = await taget.screenshot({ type: "jpeg", quality: 65 });
             await page.close();
             session.send(h.image(img, "image/jpeg"));
