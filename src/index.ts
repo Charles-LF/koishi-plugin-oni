@@ -3,7 +3,14 @@ import puppeteer from "koishi-plugin-puppeteer";
 import { sendMarkdown } from "./messageSend";
 import sharp from "sharp";
 
-export const usage = `<缺氧>游戏的wiki查询插件,返回wiki详情页截图,机器人必须拥有md的模板和发送的权限`;
+export const usage = `<缺氧>游戏的wiki查询插件,返回wiki详情页截图,机器人必须拥有md的模板和发送的权限,依托shit(
+
+  更新日志:
+
+    - 1.0.5 修复了发送的图片地址多了一个/的问题,像是个睿智.
+
+    - 1.0.4 修复了发送的网址多了一个/的问题(
+`;
 export const inject = ["puppeteer"];
 export const name = "oni";
 
@@ -27,7 +34,7 @@ export const Config: Schema<Config> = Schema.object({
   mdId: Schema.string().description("机器人的mdID"),
   buttonId: Schema.string().description("机器人的按钮Id"),
   url: Schema.string()
-    .default("https://klei.vip/oni/cs63ju")
+    .default("https://klei.vip/oni/cs63ju/")
     .description("请求失败直接赋值的前缀地址"),
   quality: Schema.number().default(60).description("截取的图片质量"),
   height: Schema.number().default(12228).description("截取的图片高度"),
@@ -35,6 +42,7 @@ export const Config: Schema<Config> = Schema.object({
 
 export function apply(ctx: Context, config: Config) {
   const logger = ctx.logger("oni");
+  const { appId, token, api, mdId, buttonId, url, quality, height } = config;
   ctx
     .command("cx <itemName>", "获取wiki详情页")
     .example("cx 电解器")
@@ -51,14 +59,14 @@ export function apply(ctx: Context, config: Config) {
         format: "json",
         search: itemName,
       };
-      logger.info(`本轮查询开始: ${itemName}`);
+      session.send(`本轮查询开始: ${itemName},请耐心等待结果返回...`);
 
       await ctx.http
-        .get(config.api, { params: qurry, headers: headers })
+        .get(api, { params: qurry, headers: headers })
         .then(async (res) => {
           logger.info(`API返回结果: ${res}`);
           const awserList = [1, 2, 3, 4, 5];
-          const [title, resItemList, none1, urlList] = res;
+          const [title, resItemList, , urlList] = res;
           const itemList = [];
           for (const j in resItemList) {
             itemList.push(resItemList[j].replace(".", "-*"));
@@ -68,10 +76,10 @@ export function apply(ctx: Context, config: Config) {
           } else {
             let [one, two, three, four, five] = itemList;
             await sendMarkdown(
-              config.appId,
-              config.token,
+              appId,
+              token,
               session.channelId,
-              config.mdId,
+              mdId,
               {
                 one: one || "饭炒炒饭",
                 two: two || "扬州炒饭",
@@ -79,7 +87,7 @@ export function apply(ctx: Context, config: Config) {
                 four: four || "饭炒鸡蛋",
                 five: five || "鸡蛋炒饭",
               },
-              config.buttonId
+              buttonId
             );
             const awser =
               +(await session.prompt(50 * 1000))
@@ -96,7 +104,7 @@ export function apply(ctx: Context, config: Config) {
         .catch(async (err) => {
           console.log(err);
           await session.send("API查询失败，赋值截取中，请稍等。。。。");
-          await printer(config.url + "/" + encodeURI(itemName));
+          await printer(config.url + encodeURI(itemName));
         });
 
       // 图片切片
@@ -141,12 +149,17 @@ export function apply(ctx: Context, config: Config) {
             sleep(3000);
             const img = await taget.screenshot({
               type: "jpeg",
-              quality: config.quality,
+              quality: quality,
             });
             await page.close();
             logger.info(`截图成功: ${url}`);
-            await sliceImage(img, config.height);
-            return `你也可以自行去${config.url + encodeURI(itemName)}查看}`;
+            session.send(
+              `你也可以自行去访问下列网址查看:\n${
+                config.url + encodeURI(itemName)
+              }`
+            );
+            await sliceImage(img, height);
+            return;
           } catch (e) {
             await page.close();
             logger.info(`截图失败, 原因: ${e}`);
