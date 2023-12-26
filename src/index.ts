@@ -1,7 +1,6 @@
 import { Context, Schema, h, sleep } from "koishi";
 import puppeteer from "koishi-plugin-puppeteer";
 import { sendMarkdown } from "./messageSend";
-import sharp from "sharp";
 
 export const usage = `<缺氧>游戏的wiki查询插件,返回wiki详情页截图,机器人必须拥有md的模板和发送的权限,依托shit(
 
@@ -107,31 +106,6 @@ export function apply(ctx: Context, config: Config) {
           await printer(config.url + encodeURI(itemName));
         });
 
-      // 图片切片
-      async function sliceImage(buffer: Buffer, userHeight: number) {
-        const { width, height } = await sharp(buffer).metadata();
-        if (height < userHeight) {
-          logger.info(`${height} , ${userHeight}`);
-          await session.send(h.image(buffer, "image/jpeg"));
-        } else {
-          const slices = Math.ceil(height / userHeight);
-          for (let i = 0; i < slices; i++) {
-            const startY = i * userHeight;
-            const endY = Math.min((i + 1) * userHeight, height);
-            const extract = {
-              left: 0,
-              top: startY,
-              width,
-              height: endY - startY,
-            };
-            sleep(1000);
-            let img = await sharp(buffer).extract(extract).toBuffer();
-            await session.send(h.image(img, "image/jpeg"));
-          }
-          return;
-        }
-      }
-
       // 获取截图
       async function printer(url: string) {
         if (url == undefined) {
@@ -158,7 +132,6 @@ export function apply(ctx: Context, config: Config) {
                 config.url + encodeURI(itemName)
               }`
             );
-            await sliceImage(img, height);
             return;
           } catch (e) {
             await page.close();
