@@ -1,7 +1,7 @@
 export async function sendMarkdown(
   appID: string,
   token: string,
-  channelId: string,
+  channelId: string | number,
   templateId: string,
   _params?: { [key: string]: string },
   keyboardId?: string
@@ -28,4 +28,8 @@ export async function sendMarkdown(
       throw json;
     } else return json;
   });
+}
+
+export async function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
