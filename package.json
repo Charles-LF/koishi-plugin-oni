@@ -1,20 +1,45 @@
 {
   "name": "koishi-plugin-oni",
   "description": "缺氧wiki查询",
-  "version": "2.0.0",
+  "version": "2.0.2",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
     "lib",
     "dist"
   ],
+  "service": {
+    "required": [
+      "puppeteer"
+    ]
+  },
+  "koishi": {
+    "description": {
+      "zh": "缺氧wiki查询,个人用的,写的不看入目("
+    }
+  },
+  "contributors": [
+    "Charles <Charles@klei.vip>"
+  ],
+  "homepage": "https://github.com/Charles-LF/koishi-plugin-oni",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Charles-LF/koishi-plugin-oni.git"
+  },
   "license": "MIT",
   "keywords": [
     "chatbot",
     "koishi",
-    "plugin"
+    "plugin",
+    "oni"
   ],
   "peerDependencies": {
     "koishi": "^4.14.5"
+  },
+  "dependencies": {
+    "pngjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/pngjs": "^6.0.4"
   }
 }

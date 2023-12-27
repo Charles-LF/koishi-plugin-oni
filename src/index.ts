@@ -1,15 +1,17 @@
 import { Context, Logger, Schema, h } from "koishi";
 import puppeteer from "koishi-plugin-puppeteer";
-import type {} from "@ltxhhz/koishi-plugin-skia-canvas";
 import { sendMarkdown, delay } from "./messageSend";
+import { PNG } from "pngjs";
 
-export const usage = `<缺氧>游戏的wiki查询插件,返回wiki详情页截图,机器人必须拥有md的模板和发送的权限.依托shit(
+export const usage = `<缺氧>游戏的wiki查询插件,返回wiki详情页截图,机器人必须拥有md的模板和发送的权限.自己都看不下去去了,依托shit(
 
-  更新日志:
+  更新日志:\n
+    - 2.0.2 又重新写了一遍图片处理逻辑,顺带把自定义网址加入发送的自定义.
+    - 2.0.1 尝试修复频道端无法处理的问题.
     - 2.0.0 重新写了一遍,优化了点逻辑.
     - 1.0.5 修复了发送的图片地址多了一个/的问题,像是个睿智.
 `;
-export const inject = ["puppeteer", "canvas", "skia"];
+export const inject = ["puppeteer"];
 export const name = "oni";
 
 export interface Config {
@@ -41,13 +43,12 @@ export const Config: Schema<Config> = Schema.object({
 const logger = new Logger("oni");
 
 export function apply(ctx: Context, config: Config) {
-  const { Canvas, loadImage } = ctx.skia;
   const { appId, token, api, mdId, buttonId, url, quality, maxHeight } = config;
   ctx
     .command("cx <itemName>", "获取wiki详情页")
     .example("cx 电解器")
     .action(async ({ session }, itemName: string = "电解器") => {
-      session.send(`您查询的${itemName} 正在进行中...`);
+      session.send(`您查询的 「${itemName}」 正在进行中...`);
       const awserList: number[] = [1, 2, 3, 4, 5];
       // 向服务器发起搜索
       let res = await ctx.http
@@ -156,24 +157,33 @@ export function apply(ctx: Context, config: Config) {
 
       // 图片切片
       async function splitImage(buffer: Buffer) {
-        logger.info(`处理图片 ${buffer.length}`);
-        const image = await loadImage(buffer);
-        const { width, height } = image;
+        let png = await new Promise<PNG>((resolve, reject) => {
+          const png = new PNG();
+          return png.parse(buffer, (error, data) => {
+            return error ? reject(error) : resolve(data);
+          });
+        });
+        if (png.height > maxHeight) {
+          const width = png.width;
+          const user_height = maxHeight;
+          logger.info(`图片高度${png.height},图片宽度${png.width}`);
+          const img = new PNG({ width, height: user_height });
+          png.bitblt(img, 0, 0, width, user_height, 0, 0);
+          let final = PNG.sync.write(img);
 
-        if (height > maxHeight) {
-          const buffer1 = new Canvas(width, maxHeight);
-
-          buffer1.getContext("2d").drawImage(image, 0, 0, width, maxHeight);
-          let img = await buffer1.toBuffer("png");
-
-          return `${h.image(img, "image/png")} 您可以自行访问 ${url}${encodeURI(
-            itemName
-          )} 查看详情`;
+          session.send(
+            `若图片异常或无法发出,您可以自行访问以下网址查看详情: \n${url}${encodeURI(
+              itemName
+            )}`
+          );
+          return h.image(final, "image/png");
         } else {
-          return `${h.image(
-            buffer,
-            "image/png"
-          )}\n 您可以自行访问 ${url}${encodeURI(itemName)} 查看详情`;
+          session.send(
+            `若图片异常或无法发出,您可以自行访问以下网址查看详情: \n${url}${encodeURI(
+              itemName
+            )}`
+          );
+          return h.image(buffer, "image/png");
         }
       }
     });
