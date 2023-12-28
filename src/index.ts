@@ -6,6 +6,7 @@ import { PNG } from "pngjs";
 export const usage = `<缺氧>游戏的wiki查询插件,返回wiki详情页截图,机器人必须拥有md的模板和发送的权限.自己都看不下去去了,依托shit(
 
   更新日志:\n
+    - 2.0.3 修复了没有网络请求返回空是没有提示的问题.
     - 2.0.2 又重新写了一遍图片处理逻辑,顺带把自定义网址加入发送的自定义.
     - 2.0.1 尝试修复频道端无法处理的问题.
     - 2.0.0 重新写了一遍,优化了点逻辑.
@@ -79,12 +80,12 @@ export function apply(ctx: Context, config: Config) {
 
       logger.info(`API返回的数据为: ${title}`);
 
-      if (title.length > 0 && title[0] == itemName) {
+      if (res.length > 0 && title.length > 0 && title[0] == itemName) {
         const buffer = await screenShot(res_url[0]);
         if (buffer) {
           return splitImage(buffer);
         }
-      } else if (title.length > 0 && title[0] != itemName) {
+      } else if (res.length > 0 && title.length > 0 && title[0] != itemName) {
         let [one, two, three, four, five] = title;
         await sendMarkdown(
           appId,
@@ -111,7 +112,7 @@ export function apply(ctx: Context, config: Config) {
         } else if (Number.isNaN(awser)) {
           return "选择超时,本轮查询已结束...";
         }
-      } else if (res.length == 0) {
+      } else if (res.length <= 0 || title.length <= 0) {
         session.send("没有找到相关的结果,尝试赋值截取中...");
         const buffer = await screenShot(url + encodeURI(itemName));
         if (buffer) {
