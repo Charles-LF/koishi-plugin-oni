@@ -1,11 +1,12 @@
 import { Context, Logger, Schema, h } from "koishi";
 import puppeteer from "koishi-plugin-puppeteer";
 import { sendMarkdown, delay } from "./messageSend";
-import { PNG } from "pngjs";
+import os from "os";
 
 export const usage = `<缺氧>游戏的wiki查询插件,返回wiki详情页截图,机器人必须拥有md的模板和发送的权限.自己都看不下去去了,依托shit(
 
   更新日志:\n
+    - 2.1.0 将图片保存到服务器,以避免被腾讯煞笔规则搞得发不了大图的问题.
     - 2.0.3 修复了没有网络请求返回空是没有提示的问题.
     - 2.0.2 又重新写了一遍图片处理逻辑,顺带把自定义网址加入发送的自定义.
     - 2.0.1 尝试修复频道端无法处理的问题.
@@ -24,6 +25,8 @@ export interface Config {
   url: string;
   quality: number;
   maxHeight: number;
+  imgPath: string;
+  userPath: string;
 }
 
 export const Config: Schema<Config> = Schema.object({
@@ -37,14 +40,17 @@ export const Config: Schema<Config> = Schema.object({
   url: Schema.string()
     .default("https://klei.vip/oni/cs63ju/")
     .description("请求失败直接赋值的前缀地址"),
-  quality: Schema.number().default(60).description("截取的图片质量"),
+  quality: Schema.number().default(75).description("截取的图片质量"),
   maxHeight: Schema.number().default(12228).description("截取的图片高度"),
+  imgPath: Schema.string()
+    .default(os.homedir() + "\\Desktop\\wikiImg")
+    .description("保存到本地的路径"),
+  userPath: Schema.string().default("https://oni.wiki").description("公网地址"),
 });
 
 const logger = new Logger("oni");
 
 export function apply(ctx: Context, config: Config) {
-  const { appId, token, api, mdId, buttonId, url, quality, maxHeight } = config;
   ctx
     .command("cx <itemName>", "获取wiki详情页")
     .example("cx 电解器")
@@ -52,8 +58,8 @@ export function apply(ctx: Context, config: Config) {
       session.send(`您查询的 「${itemName}」 正在进行中...`);
       const awserList: number[] = [1, 2, 3, 4, 5];
       // 向服务器发起搜索
-      let res = await ctx.http
-        .get(api, {
+      let res: string[] = await ctx.http
+        .get(config.api, {
           headers: {
             "Content-Type": "application/json",
             "User-Agent":
@@ -68,6 +74,7 @@ export function apply(ctx: Context, config: Config) {
           },
         })
         .then((res) => {
+          logger.info(res);
           return [res[1], res[3]];
         })
         .catch((err) => {
@@ -75,116 +82,81 @@ export function apply(ctx: Context, config: Config) {
           return [];
         });
 
-      let title: string[] = [...res[0]];
-      let res_url: string[] = [...res[1]];
-
-      logger.info(`API返回的数据为: ${title}`);
-
-      if (res.length > 0 && title.length > 0 && title[0] == itemName) {
-        const buffer = await screenShot(res_url[0]);
-        if (buffer) {
-          return splitImage(buffer);
-        }
-      } else if (res.length > 0 && title.length > 0 && title[0] != itemName) {
-        let [one, two, three, four, five] = title;
-        await sendMarkdown(
-          appId,
-          token,
-          session.channelId || session.guildId,
-          mdId,
-          {
-            one: one || "蝴蝶松饼",
-            two: two || "波兰水饺",
-            three: three || "怪物千层饼",
-            four: four || "曼德拉草汤",
-            five: five || "火龙果派",
-          },
-          buttonId
-        );
-        const awser =
-          +(await session.prompt(50 * 1000))?.replace(/\s+/g, "")?.slice(-1) ||
-          NaN;
-        if (awserList.includes(awser)) {
-          const buffer = await screenShot(res_url[awser - 1]);
-          if (buffer) {
-            return splitImage(buffer);
+      if (res.length === 0) {
+        session.send(`API 查询超时,即将进行赋值截取......`);
+        return screenShot(config.url + encodeURI(itemName));
+      } else {
+        let title: string[] = [...res[0]];
+        let res_url: string[] = [...res[1]];
+        logger.info(`API返回的数据为: ${title}`);
+        if (title[0] === itemName) {
+          return screenShot(res_url[0]);
+        } else {
+          let [one, two, three, four, five] = title;
+          await sendMarkdown(
+            config.appId,
+            config.token,
+            session.channelId || session.guildId,
+            config.mdId,
+            {
+              one: one || "蝴蝶松饼",
+              two: two || "波兰水饺",
+              three: three || "怪物千层饼",
+              four: four || "曼德拉草汤",
+              five: five || "火龙果派",
+            },
+            config.buttonId
+          );
+          const awser =
+            +(await session.prompt(50 * 1000))
+              ?.replace(/\s+/g, "")
+              ?.slice(-1) || NaN;
+          if (awserList.includes(awser)) {
+            return screenShot(res_url[awser - 1]);
+          } else if (Number.isNaN(awser)) {
+            return "选择超时,本轮查询已结束...";
           }
-        } else if (Number.isNaN(awser)) {
-          return "选择超时,本轮查询已结束...";
-        }
-      } else if (res.length <= 0 || title.length <= 0) {
-        session.send("没有找到相关的结果,尝试赋值截取中...");
-        const buffer = await screenShot(url + encodeURI(itemName));
-        if (buffer) {
-          return splitImage(buffer);
         }
       }
 
       // 获取截图
-      async function screenShot(url: string): Promise<Buffer | void> {
+      async function screenShot(url: string) {
         logger.info(`开始截图: ${url}`);
         if (url == undefined) {
-          session.send("酒吧里不提供此份饭炒蛋 ( ");
-          return;
+          return "酒吧里不提供此份饭炒蛋 ( ";
         } else {
           const page = await ctx.puppeteer.page();
           await page.goto(url, {
             // waitUntil: "networkidle2",
             timeout: 0,
           });
-          await delay(2000);
-          const selector = await page.$("#mw-content-text");
+          // 添加元素框距离
           await page.addStyleTag({
             content: "#mw-content-text{padding: 40px}",
           });
           await delay(2000);
+          const selector = await page.$("#mw-content-text");
 
-          return await selector
-            .screenshot({
-              type: "png",
+          await delay(2000);
+          await selector
+            ?.screenshot({
+              type: "jpeg",
+              quality: config.quality,
+              encoding: "base64",
+              path: `${config.imgPath}/${itemName}.jpg`,
             })
-            .then(async (buffer: Buffer) => {
-              return buffer;
-            })
-            .catch((err) => {
+            .then(async () => {})
+            .catch(async (err) => {
               logger.error(err);
-              return;
             })
-            .finally(() => {
-              page.close();
+            .finally(async () => {
+              await page.close();
             });
-        }
-      }
-
-      // 图片切片
-      async function splitImage(buffer: Buffer) {
-        let png = await new Promise<PNG>((resolve, reject) => {
-          const png = new PNG();
-          return png.parse(buffer, (error, data) => {
-            return error ? reject(error) : resolve(data);
-          });
-        });
-        if (png.height > maxHeight) {
-          const width = png.width;
-          const user_height = maxHeight;
-          logger.info(`图片高度${png.height},图片宽度${png.width}`);
-          const img = new PNG({ width, height: user_height });
-          png.bitblt(img, 0, 0, width, user_height, 0, 0);
-          let final = PNG.sync.write(img);
-
-          session.send(
-            `若图片异常或无法发出,您可以自行访问以下网址查看详情: \n${url}${encodeURI(
-              itemName
-            )}`
-          );
-          return h.image(final, "image/png");
-        } else {
-          session.send(
-            `若图片异常或无法发出,您可以自行访问以下网址查看详情: \n${url}${encodeURI(
-              itemName
-            )}`
-          );
-          return h.image(buffer, "image/png");
+          return `截图已保存到下列网址,请点击自行查看: \n ${
+            config.userPath
+          }/${encodeURI(itemName)}.jpg\n或者自行访问以下网址查看:\n ${
+            config.url
+          }${encodeURI(itemName)}`;
         }
       }
     });

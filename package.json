@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-oni",
   "description": "缺氧wiki查询",
-  "version": "2.0.3",
+  "version": "2.1.0",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -35,11 +35,5 @@
   ],
   "peerDependencies": {
     "koishi": "^4.14.5"
-  },
-  "dependencies": {
-    "pngjs": "^7.0.0"
-  },
-  "devDependencies": {
-    "@types/pngjs": "^6.0.4"
   }
 }
