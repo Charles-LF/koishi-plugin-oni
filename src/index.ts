@@ -7,7 +7,7 @@ import * as lib from "./lib";
 export const usage = `<缺氧>游戏的wiki查询插件,返回wiki详情页截图,机器人必须拥有md的模板和发送的权限.自己都看不下去去了,依托shit(
 
   更新日志:\n
-    - 2.2.2 修复文件不能有路径的问题
+    - 2.2.3 修复文件不能有路径的问题
     - 2.2.1 加入本地文件检测.
     - 2.1.1 刷下版本号,商店一直加不了(
     - 2.1.0 将图片保存到服务器,以避免被腾讯煞笔规则搞得发不了大图的问题.
@@ -72,9 +72,11 @@ export function apply(ctx: Context, config: Config) {
         } else {
           return `文件缓存命中.\n截图已存在于下列网址,请点击自行查看: \n ${
             config.userPath
-          }${encodeURI(itemName)}.jpeg\n或者自行访问以下网址查看:\n ${
-            config.url
-          }${encodeURI(itemName)}`;
+          }${encodeURI(
+            itemName.replace(/\//g, "-").replace(/:/g, "-").replace(/'/g, "-")
+          )}.jpeg\n或者自行访问以下网址查看:\n ${config.url}${encodeURI(
+            itemName
+          )}`;
         }
       } else {
         return await toUser();
