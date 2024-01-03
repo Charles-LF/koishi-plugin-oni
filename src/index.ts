@@ -7,6 +7,7 @@ import * as lib from "./lib";
 export const usage = `<缺氧>游戏的wiki查询插件,返回wiki详情页截图,机器人必须拥有md的模板和发送的权限.自己都看不下去去了,依托shit(
 
   更新日志:\n
+    - 2.2.2 修复文件不能有路径的问题
     - 2.2.1 加入本地文件检测.
     - 2.1.1 刷下版本号,商店一直加不了(
     - 2.1.0 将图片保存到服务器,以避免被腾讯煞笔规则搞得发不了大图的问题.
@@ -43,7 +44,9 @@ export const Config: Schema<Config> = Schema.object({
   imgPath: Schema.string()
     .default(os.homedir() + "\\Desktop\\wikiImg\\")
     .description("保存到本地的路径"),
-  userPath: Schema.string().default("https://oni.wiki").description("公网地址"),
+  userPath: Schema.string()
+    .default("https://oni.wiki/")
+    .description("公网地址"),
 });
 
 export function apply(ctx: Context, config: Config) {
@@ -59,7 +62,10 @@ export function apply(ctx: Context, config: Config) {
       }
       session.send(`您查询的 「${itemName}」 正在进行中...`);
       // 判断文件是否在本地且时间不超2天
-      let filePath = config.imgPath + itemName + ".jpeg";
+      let filePath =
+        config.imgPath +
+        itemName.replace(/\//g, "-").replace(/:/g, "-").replace(/'/g, "-") +
+        ".jpeg";
       if (lib.checkFileExists(filePath)) {
         if (lib.getFileModifyTime(filePath)) {
           return await toUser();
@@ -164,7 +170,10 @@ export function apply(ctx: Context, config: Config) {
             .screenshot({
               type: "jpeg",
               quality: config.quality,
-              path: `${config.imgPath}${itemName}.jpeg`,
+              path: `${config.imgPath}${itemName
+                .replace(/\//g, "-")
+                .replace(/:/g, "-")
+                .replace(/'/g, "-")}.jpeg`,
             })
             .then(async () => {})
             .catch(async (err) => {
@@ -175,9 +184,11 @@ export function apply(ctx: Context, config: Config) {
             });
           return `截图已保存到下列网址,请点击自行查看: \n ${
             config.userPath
-          }${encodeURI(itemName)}.jpeg\n或者自行访问以下网址查看:\n ${
-            config.url
-          }${encodeURI(itemName)}`;
+          }${encodeURI(
+            itemName.replace(/\//g, "-").replace(/:/g, "-").replace(/'/g, "-")
+          )}.jpeg\n或者自行访问以下网址查看:\n ${config.url}${encodeURI(
+            itemName
+          )}`;
         }
       }
     });
