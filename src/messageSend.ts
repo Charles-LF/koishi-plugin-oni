@@ -1,3 +1,12 @@
+/**
+ * @param appID 机器人ID
+ * @param token 机器人Token
+ * @param channelId 频道ID
+ * @param templateId mdk模版ID
+ * @param _params 模版参数
+ * @param keyboardId 按钮ID
+ * @returns void
+ */
 export async function sendMarkdown(
   appID: string,
   token: string,
@@ -30,6 +39,11 @@ export async function sendMarkdown(
   });
 }
 
+/**
+ *
+ * @param ms 延迟毫秒数
+ * @returns void
+ */
 export async function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
