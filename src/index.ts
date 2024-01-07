@@ -153,7 +153,7 @@ export function apply(ctx: Context, config: Config) {
       async function screenShot(url: string) {
         logger.info(`开始截图: ${url}`);
         if (url == undefined) {
-          return "酒吧里不提供此份饭炒蛋 ( ";
+          return "你游还没有这些东西 ( ";
         } else {
           const page = await ctx.puppeteer.page();
           await page.goto(url, {
